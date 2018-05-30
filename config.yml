@@ -6,7 +6,7 @@ horizon: 100
 ou_theta: 0.15
 ou_sigma: 0.2
 
-max_riccati_updates: 1
+max_riccati_updates: 100
 train_batch_size: 100
 replay_buffer_size: 100000
 discount_rate: 0.9
