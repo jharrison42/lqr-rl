@@ -42,6 +42,7 @@ class klqr:
         self.horizon = config['horizon']
         self.gamma = config['discount_rate']
 
+        self.P_lr = config['P_lr']
         
         ou_theta = config['ou_theta']
         ou_sigma = config['ou_sigma']
@@ -228,13 +229,14 @@ class klqr:
 #        for k in range(self.max_riccati_updates):
 #            self.sess.run(self.riccati_update_op)
         
-        Q,R,A,B = self.sess.run((self.Q, self.R, self.A, self.B))
+        Q,R,A,B,oldP = self.sess.run((self.Q, self.R, self.A, self.B, self.P))
         P = Q
         for k in range(self.max_riccati_updates):
             P = Q + A.T @ P @ A - A.T @ P.T @ B @ np.linalg.inv(R + B.T @ P @ B ) @ B.T @ P @ A
             P = 0.5*(P + P.T)
         
-        self.P.assign(P).eval()
+        newP = oldP + self.P_lr*(P - oldP) 
+        self.P.assign(newP).eval()
         print(self.sess.run(self.P))
             #TODO add a termination criterion for norm of Riccati update difference?
     

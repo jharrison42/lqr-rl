@@ -13,17 +13,27 @@ def experience_generator(agent, env, N,training=True):
     s = env.reset()
     n_steps = 0
     n_eps = 0
+    last_opt_cost = 0
     last_cum_rew = 0
+    last_rews = []
+    
+    opt_cost = 0
     cum_rew = 0
+    rews = []
     while True:
         n_steps += 1
         a = agent.pi(s,explore=training)
         sp, r, done,_ = env.step(a)
         cum_rew += r
+        rews.append(r)
+        
         if done:
             n_eps += 1
+            last_opt_cost = opt_cost
             last_cum_rew = cum_rew
+            last_rews = rews.copy()
             cum_rew = 0
+            rews = []
             s = env.reset()
             s_init = s.copy()
             
@@ -42,15 +52,15 @@ def experience_generator(agent, env, N,training=True):
                     P = 0.5*(P + P.T)
                     
                 si = np.reshape(s_init,(len(s_init),1))
-                optimal_cost = (si.T @ P @ si)[0,0]
-                print('Optimal cost for this problem:', optimal_cost)
+                opt_cost = (si.T @ P @ si)[0,0]
+                #print('Optimal cost for this problem:', optimal_cost)
 
         else:
             agent.store_experience(s, a, r, sp, done)
             s = sp
 
         if n_steps % N == 0:
-            yield (n_steps, n_eps, last_cum_rew)
+            yield (n_steps, n_eps, last_rews, last_cum_rew, last_opt_cost)
 
         
 
@@ -85,7 +95,7 @@ def train_agent(agent, env,
 
         print("********** Iteration %i ************"%iters_so_far)
             # gather experience
-        timesteps_so_far, episodes_so_far, last_cum_rew = exp_gen.__next__()
+        timesteps_so_far, episodes_so_far, last_rews, last_cum_rew, last_opt_cost = exp_gen.__next__()
         
         if training:
 
@@ -95,7 +105,7 @@ def train_agent(agent, env,
 
             if iters_so_far % n_iters_per_p_update == 0:
                 agent.update_P()
-
-        print("\tLast Episode Reward: %f"%last_cum_rew)
+        print("\tEpisode Len: %d"%len(last_rews))
+        print("\tLast Episode Cost: %f vs optimal %f"%(-last_cum_rew, last_opt_cost))
         # add other logging stuff here
         # add saving checkpoints here

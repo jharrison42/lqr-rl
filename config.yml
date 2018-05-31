@@ -1,6 +1,6 @@
 x_dim: 3
 z_dim: 3
-a_dim: 3
+a_dim: 1
 lr: 0.001
 horizon: 100
 ou_theta: 0.15
@@ -13,9 +13,11 @@ discount_rate: 1.0
 
 encoder_layers: [64,64]
 
-dynamics_weight: 0.0
-cost_weight: 0.0
-td_weight: 1.0
+dynamics_weight: 1.0
+cost_weight: 1.0
+td_weight: 0.0
+
+P_lr: 0.1
 
 l1_reg_weight: 0.01
 
