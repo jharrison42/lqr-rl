@@ -1,7 +1,7 @@
 x_dim: 3
 z_dim: 3
 a_dim: 1
-lr: 0.001
+lr: 0.0001
 horizon: 100
 ou_theta: 0.15
 ou_sigma: 0.1

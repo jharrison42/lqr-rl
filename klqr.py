@@ -266,7 +266,7 @@ class klqr:
         if batch_norm:
             z = tf.layers.batch_normalization(z)
 
-        return x
+        return z
 
 class ReplayBuffer:
     # taken from Yuke Zhu's Q learning implementation
