@@ -96,11 +96,9 @@ class klqr:
 
             #init B -- shape: z_dim * u_dim
             self.B = tf.get_variable('B',shape=[self.z_dim,self.a_dim])
-    #         self.B = tf.Variable(np.random.rand(self.z_dim,self.u_dim) - 0.5)
 
             #init A -- shape: z_dim * z_dim
             self.A = tf.get_variable('A',shape=[self.z_dim,self.z_dim])
-    #         self.A = tf.Variable(np.random.rand(self.z_dim,self.z_dim) - 0.5)
 
             #define K -- shape: u_dim * z_dim
             with tf.name_scope('compute_K'):
@@ -145,8 +143,8 @@ class klqr:
             self.train_op = optimizer.minimize(self.loss, global_step=global_step)
             
             # utilities for doing riccati recursion
-            self.reset_P_op = self.P.assign(np.zeros([self.z_dim, self.z_dim]))# tf.stop_gradient(self.Q))
-            self.riccati_update_op = self.P.assign(tf.stop_gradient(self.riccati_recursion_step()))
+            #self.reset_P_op = self.P.assign(np.zeros([self.z_dim, self.z_dim]))# tf.stop_gradient(self.Q))
+            #self.riccati_update_op = self.P.assign(tf.stop_gradient(self.riccati_recursion_step()))
             
             # record summaries
             tf.summary.scalar('dynamics_loss', self.dynamics_loss)
@@ -219,11 +217,17 @@ class klqr:
 #             self.P = self.Q + tf.matmul(tf.matmul(tf.transpose(self.K),self.R),self.K) + self.gamma*APA
         
 #         self.P_asym = tf.transpose(tf.cholesky(self.P))
-        self.sess.run(self.reset_P_op)
-        for k in range(self.max_riccati_updates):
-            self.sess.run(self.riccati_update_op)
+#        self.sess.run(self.reset_P_op)
+#        for k in range(self.max_riccati_updates):
+#            self.sess.run(self.riccati_update_op)
         
-
+        Q,R,A,B = self.sess.run((self.Q, self.R, self.A, self.B))
+        P = Q
+        for k in range(self.max_riccati_updates):
+            P = Q + A.T @ P @ A - A.T @ P @ B @ np.linalg.inv(R + B.T @ P @ B ) @ B.T @ P.T @ A
+            P = 0.5*(P + P.T)
+        
+        self.P.assign(P).eval()
         print(self.sess.run(self.P))
             #TODO add a termination criterion for norm of Riccati update difference?
     
@@ -241,7 +245,7 @@ class klqr:
         # currently storing experience for every iteration
         self.replay_buffer.add(s, a, r, sp, done)
     
-    def encoder(self,x,name="encoder",batch_norm=True):
+    def encoder(self,x,name="encoder",batch_norm=False):
         layer_sizes = self.config['encoder_layers']
         with tf.variable_scope(name,reuse=tf.AUTO_REUSE):
             inp = x
