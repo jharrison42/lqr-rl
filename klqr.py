@@ -56,9 +56,12 @@ class klqr:
         self.train_batch_size = config['train_batch_size']
         self.replay_buffer = ReplayBuffer(buffer_size=config['replay_buffer_size'])
         
-        self.dynamics_weight = 1.0
-        self.cost_weight = 1.0
-        self.td_weight = 0.0
+        self.dynamics_weight = config['dynamics_weight']
+        self.cost_weight = config['cost_weight']
+        self.td_weight = config['td_weight']
+        
+        self.min_a = config['min_a']
+        self.max_a = config['max_a']
         
         self.experience_count = 0
         
@@ -105,7 +108,7 @@ class klqr:
                 term1 = tf.matrix_inverse(self.R + tf.linalg.transpose(self.B) @ self.P @ self.B)
                 term2 = tf.linalg.transpose(self.B) @ self.P @ self.A
                 self.K = tf.stop_gradient( -term1 @ term2 )
-                self.policy_action = batch_matmul(self.K, self.z)
+                self.policy_action = tf.clip_by_value( batch_matmul(self.K, self.z), self.min_a, self.max_a)
             
             # predict next state
             with tf.name_scope('predict_next_state'):
