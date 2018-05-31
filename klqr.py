@@ -244,9 +244,9 @@ class klqr:
         
         a,w = self.sess.run([self.policy_action,self.noise], {self.x_: x})
         
-        a = a + w if explore else a
+        a = a + w.T if explore else a
         # TODO check the dimension of the output of this
-        return [a[0,0]]
+        return a.tolist()[0]
         
     def store_experience(self,s,a,r,sp,done):
         # currently storing experience for every iteration
@@ -264,7 +264,7 @@ class klqr:
         if batch_norm:
             z = tf.layers.batch_normalization(z)
 
-        return z
+        return x
 
 class ReplayBuffer:
     # taken from Yuke Zhu's Q learning implementation
