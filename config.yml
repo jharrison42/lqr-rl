@@ -11,4 +11,11 @@ train_batch_size: 100
 replay_buffer_size: 100000
 discount_rate: 0.9
 
-encoder_layers: [32]
+encoder_layers: [64,64]
+
+dynamics_weight: 1.0
+cost_weight: 1.0
+td_weight: 0.0
+
+min_a: -1.0
+max_a: 1.0
