@@ -60,6 +60,8 @@ class klqr:
         self.cost_weight = config['cost_weight']
         self.td_weight = config['td_weight']
         
+        self.l1_reg_weight = config['l1_reg_weight']
+        
         self.min_a = config['min_a']
         self.max_a = config['max_a']
         
@@ -139,8 +141,10 @@ class klqr:
             with tf.name_scope('cost_loss'):
                 self.cost_pred_loss = tf.reduce_mean(tf.square(self.r_pred - self.r_))
             
+            with tf.name_scope('regularization'):
+                self.l1_reg = tf.reduce_mean(tf.abs(self.A))
             
-            self.loss = self.td_weight*self.td_loss + self.dynamics_weight*self.dynamics_loss + self.cost_weight*self.cost_pred_loss
+            self.loss = self.td_weight*self.td_loss + self.dynamics_weight*self.dynamics_loss + self.cost_weight*self.cost_pred_loss + self.l1_reg_weight*self.l1_reg
             global_step = tf.Variable(0, trainable=False, name='global_step')
             optimizer = tf.train.AdamOptimizer(self.lr)
             self.train_op = optimizer.minimize(self.loss, global_step=global_step)
@@ -227,7 +231,7 @@ class klqr:
         Q,R,A,B = self.sess.run((self.Q, self.R, self.A, self.B))
         P = Q
         for k in range(self.max_riccati_updates):
-            P = Q + A.T @ P @ A - A.T @ P @ B @ np.linalg.inv(R + B.T @ P @ B ) @ B.T @ P.T @ A
+            P = Q + A.T @ P @ A - A.T @ P.T @ B @ np.linalg.inv(R + B.T @ P @ B ) @ B.T @ P @ A
             P = 0.5*(P + P.T)
         
         self.P.assign(P).eval()

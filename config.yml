@@ -17,5 +17,7 @@ dynamics_weight: 1.0
 cost_weight: 1.0
 td_weight: 0.0
 
+l1_reg_weight: 0.1
+
 min_a: -1.0
 max_a: 1.0

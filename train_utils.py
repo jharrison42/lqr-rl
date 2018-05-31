@@ -25,6 +25,27 @@ def experience_generator(agent, env, N):
             last_cum_rew = cum_rew
             cum_rew = 0
             s = env.reset()
+            s_init = s.copy()
+            
+            #print out LQR optimal cost if env = LQEnv
+            
+            if env.spec.id == 'LQ-v0':
+                #compute optimal riccati
+                A = env.unwrapped.A
+                B = env.unwrapped.B
+                Q = env.unwrapped.Q
+                R = env.unwrapped.R
+                
+                max_riccati = 100
+                P = Q.copy()
+                for k in range(max_riccati):
+                    P = Q + A.T @ P @ A - A.T @ P @ B @ np.linalg.inv(R + B.T @ P @ B ) @ B.T @ P.T @ A
+                    P = 0.5*(P + P.T)
+                    
+                si = np.reshape(s_init,(len(s_init),1))
+                optimal_cost = (si.T @ P @ si)[0,0]
+                print('Optimal cost for this problem:', optimal_cost)
+            
         else:
             agent.store_experience(s, a, r, sp, done)
             s = sp
@@ -32,13 +53,13 @@ def experience_generator(agent, env, N):
         if n_steps % N == 0:
             yield (n_steps, n_eps, last_cum_rew)
 
-
+        
 
 def train_agent(agent, env,
                 max_timesteps=0, max_episodes=0, max_iters=0, max_seconds=0, # time constraint
                 n_transitions_between_updates=100,
                 n_optim_steps_per_update=100,
-                n_iters_per_p_update=100,
+                n_iters_per_p_update=5,
                 ):
 
     # run an episode, and feed data to model
@@ -50,7 +71,7 @@ def train_agent(agent, env,
     assert sum([max_iters>0, max_timesteps>0, max_episodes>0, max_seconds>0])==1, "Only one time constraint permitted"
 
     exp_gen = experience_generator(agent, env, n_transitions_between_updates)
-
+    
     while True:
         iters_so_far += 1
         if max_timesteps and timesteps_so_far >= max_timesteps:
