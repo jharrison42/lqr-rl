@@ -61,7 +61,11 @@ class klqr:
         self.cost_weight = config['cost_weight']
         self.td_weight = config['td_weight']
         
+        self.reconstruction_weight = config['reconstruction_weight']
+        self.x_dynamics_weight = config['x_dynamics_weight']
+        
         self.l1_reg_weight = config['l1_reg_weight']
+        self.l2_Q_reg_weight = config['l2_Q_reg_weight']
         
         self.min_a = config['min_a']
         self.max_a = config['max_a']
@@ -81,6 +85,9 @@ class klqr:
             
             self.z = self.encoder(self.x_)
             self.zp = self.encoder(self.xp_)
+            
+            self.x_r = self.decoder(self.z)
+            self.xp_r = self.decoder(self.zp)
 
             print('z shape:', self.z.get_shape())
 
@@ -117,6 +124,7 @@ class klqr:
             with tf.name_scope('predict_next_state'):
                 self.zp_pred = batch_matmul(self.A, self.z) + batch_matmul(self.B, self.a_)
             
+            self.xp_pred_r = self.decoder(self.zp_pred)
                         
             #make reward negative to convert to cost
             with tf.name_scope('compute_bootstrapped_v'):
@@ -139,13 +147,20 @@ class klqr:
                 self.td_loss = tf.reduce_mean(tf.square(self.bootstrapped_value - self.Qsa))
             with tf.name_scope('dynamics_loss'):
                 self.dynamics_loss = tf.reduce_mean(tf.square(self.zp - self.zp_pred))
+                self.weighted_dynamics_loss = tf.reduce_mean(tf.square(tf.norm(batch_matmul(self.P_asym, self.zp- self.zp_pred))))
             with tf.name_scope('cost_loss'):
                 self.cost_pred_loss = tf.reduce_mean(tf.square(self.r_pred - self.r_))
+            with tf.name_scope('autoencoder_loss'):
+                self.reconstruction_loss = tf.reduce_mean(tf.square(self.x_r - self.x_))
+            with tf.name_scope('x_dynamics_loss'):
+                self.x_dynamics_loss = tf.reduce_mean(tf.square(self.xp_pred_r - self.xp_))
             
             with tf.name_scope('regularization'):
                 self.l1_reg = tf.reduce_mean(tf.abs(self.A))
+                self.l2_Q_reg = tf.reduce_mean(tf.square(self.Q))
             
-            self.loss = self.td_weight*self.td_loss + self.dynamics_weight*self.dynamics_loss + self.cost_weight*self.cost_pred_loss + self.l1_reg_weight*self.l1_reg
+            self.loss = self.td_weight*self.td_loss + self.dynamics_weight*self.weighted_dynamics_loss + self.cost_weight*self.cost_pred_loss + self.l1_reg_weight*self.l1_reg
+            self.loss += self.reconstruction_weight*self.reconstruction_loss + self.x_dynamics_weight*self.x_dynamics_loss + self.l2_Q_reg_weight*self.l2_Q_reg
             global_step = tf.Variable(0, trainable=False, name='global_step')
             optimizer = tf.train.AdamOptimizer(self.lr)
             self.train_op = optimizer.minimize(self.loss, global_step=global_step)
@@ -156,6 +171,9 @@ class klqr:
             
             # record summaries
             tf.summary.scalar('dynamics_loss', self.dynamics_loss)
+            tf.summary.scalar('weighted_dynamics_loss', self.weighted_dynamics_loss)
+            tf.summary.scalar('x_dynamics_loss', self.x_dynamics_loss)
+            tf.summary.scalar('reconstruction_loss', self.reconstruction_loss)
             tf.summary.scalar('cost_pred_loss', self.cost_pred_loss)
             tf.summary.scalar('td_loss', self.td_loss)
             summarize_matrix('A', self.A)
@@ -267,6 +285,17 @@ class klqr:
             z = tf.layers.batch_normalization(z)
 
         return z
+    
+    def decoder(self,z,name="decoder"):
+        layer_sizes = reversed(self.config['encoder_layers'])
+        with tf.variable_scope(name,reuse=tf.AUTO_REUSE):
+            inp = z
+            for units in layer_sizes:
+                inp = tf.layers.dense(inputs=inp, units=units,activation=tf.nn.relu)
+            
+            x = tf.layers.dense(inputs=inp, units=self.x_dim,activation=None)
+        
+        return x
 
 class ReplayBuffer:
     # taken from Yuke Zhu's Q learning implementation

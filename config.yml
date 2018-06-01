@@ -1,7 +1,7 @@
 x_dim: 3
-z_dim: 3
+z_dim: 8
 a_dim: 1
-lr: 0.0001
+lr: 0.001
 horizon: 100
 ou_theta: 0.15
 ou_sigma: 0.1
@@ -14,12 +14,16 @@ discount_rate: 1.0
 encoder_layers: [64,64]
 
 dynamics_weight: 1.0
-cost_weight: 1.0
+cost_weight: 10.0
 td_weight: 0.0
+
+x_dynamics_weight: 10.0
+reconstruction_weight: 10.0
 
 P_lr: 0.1
 
 l1_reg_weight: 0.01
+l2_Q_reg_weight: 100.0
 
 min_a: -1.0
 max_a: 1.0
