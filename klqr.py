@@ -102,11 +102,11 @@ class klqr:
             self.R = tf.matmul(tf.linalg.transpose(self.R_asym),self.R_asym)
 
             #init Q -- shape: z_dim * z_dim
-            #self.Q = tf.get_variable('Q',shape=[self.z_dim,self.z_dim], trainable=False, initializer=tf.initializers.identity)
-            #self.Q_asym = tf.linalg.transpose(tf.cholesky(self.Q))#tf.matmul(tf.linalg.transpose(self.Q_asym),self.Q_asym)
+            self.Q = tf.get_variable('Q',shape=[self.z_dim,self.z_dim], trainable=False, initializer=tf.initializers.identity)
+            self.Q_asym = tf.linalg.transpose(tf.cholesky(self.Q))#tf.matmul(tf.linalg.transpose(self.Q_asym),self.Q_asym)
             
-            self.Q_asym = tf.get_variable('Q_asym', shape=[self.z_dim,self.z_dim], initializer=tf.initializers.identity)
-            self.Q = tf.matmul(tf.linalg.transpose(self.Q_asym),self.Q_asym)
+            #self.Q_asym = tf.get_variable('Q_asym', shape=[self.z_dim,self.z_dim], initializer=tf.initializers.identity)
+            #self.Q = tf.matmul(tf.linalg.transpose(self.Q_asym),self.Q_asym)
             
             #init P -- shape: z_dim * z_dim
             self.P = tf.get_variable('P',shape=[self.z_dim,self.z_dim],trainable=False, initializer=tf.initializers.identity)
@@ -165,7 +165,7 @@ class klqr:
                 self.l2_Q_reg = tf.reduce_mean(tf.square(self.Q))
                 
             reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
-            self.loss = self.td_weight*self.td_loss + self.dynamics_weight*self.dynamics_loss + self.cost_weight*self.cost_pred_loss + self.l1_reg_weight*self.l1_reg + reg_losses
+            self.loss = self.td_weight*self.td_loss + ( self.dynamics_weight*self.weighted_dynamics_loss + self.cost_weight*self.cost_pred_loss ) / tf.matrix_determinant(self.P) + self.l1_reg_weight*self.l1_reg + reg_losses
             self.loss += self.reconstruction_weight*self.reconstruction_loss + self.x_dynamics_weight*self.x_dynamics_loss + self.l2_Q_reg_weight*self.l2_Q_reg
             global_step = tf.Variable(0, trainable=False, name='global_step')
             optimizer = tf.train.AdamOptimizer(self.lr)
@@ -276,7 +276,9 @@ class klqr:
         
     def store_experience(self,s,a,r,sp,done):
         # currently storing experience for every iteration
-        self.replay_buffer.add(s, a, r, sp, done)
+        # hack to avoid ill conditioned data on unstable systems
+        if np.abs(r) < 100:
+            self.replay_buffer.add(s, a, r, sp, done)
     
     def encoder(self,x,name="encoder",batch_norm=False):
         layer_sizes = self.config['encoder_layers']

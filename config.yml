@@ -15,15 +15,15 @@ encoder_layers: [64,64]
 
 l2_reg_scale: 0.1
 
-dynamics_weight: 0.1
-cost_weight: 0.1
-td_weight: 1.0
+dynamics_weight: 1.0
+cost_weight: 1.0
+td_weight: 0.0
 
 x_dynamics_weight: 0.001
 reconstruction_weight: 0.001
 
 
-P_lr: 0.1
+P_lr: 0.2
 
 l1_reg_weight: 0.01
 l2_Q_reg_weight: 0.0
