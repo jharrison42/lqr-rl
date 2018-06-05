@@ -102,9 +102,12 @@ class klqr:
             self.R = tf.matmul(tf.linalg.transpose(self.R_asym),self.R_asym)
 
             #init Q -- shape: z_dim * z_dim
-            self.Q = tf.get_variable('Q_asym',shape=[self.z_dim,self.z_dim], trainable=False, initializer=tf.initializers.identity)
-            self.Q_asym = tf.linalg.transpose(tf.cholesky(self.Q))#tf.matmul(tf.linalg.transpose(self.Q_asym),self.Q_asym)
-
+            #self.Q = tf.get_variable('Q',shape=[self.z_dim,self.z_dim], trainable=False, initializer=tf.initializers.identity)
+            #self.Q_asym = tf.linalg.transpose(tf.cholesky(self.Q))#tf.matmul(tf.linalg.transpose(self.Q_asym),self.Q_asym)
+            
+            self.Q_asym = tf.get_variable('Q_asym', shape=[self.z_dim,self.z_dim], initializer=tf.initializers.identity)
+            self.Q = tf.matmul(tf.linalg.transpose(self.Q_asym),self.Q_asym)
+            
             #init P -- shape: z_dim * z_dim
             self.P = tf.get_variable('P',shape=[self.z_dim,self.z_dim],trainable=False, initializer=tf.initializers.identity)
             self.P_asym = tf.linalg.transpose(tf.cholesky(self.P))
