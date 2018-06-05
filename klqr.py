@@ -70,6 +70,8 @@ class klqr:
         self.min_a = config['min_a']
         self.max_a = config['max_a']
         
+        self.regularizer = tf.contrib.layers.l2_regularizer(scale=config['l2_reg_scale'])
+        
         self.experience_count = 0
         
         self.updates_so_far = 0
@@ -100,8 +102,8 @@ class klqr:
             self.R = tf.matmul(tf.linalg.transpose(self.R_asym),self.R_asym)
 
             #init Q -- shape: z_dim * z_dim
-            self.Q_asym = tf.get_variable('Q_asym',shape=[self.z_dim,self.z_dim])
-            self.Q = tf.matmul(tf.linalg.transpose(self.Q_asym),self.Q_asym)
+            self.Q = tf.get_variable('Q_asym',shape=[self.z_dim,self.z_dim], trainable=False, initializer=tf.initializers.identity)
+            self.Q_asym = tf.linalg.transpose(tf.cholesky(self.Q))#tf.matmul(tf.linalg.transpose(self.Q_asym),self.Q_asym)
 
             #init P -- shape: z_dim * z_dim
             self.P = tf.get_variable('P',shape=[self.z_dim,self.z_dim],trainable=False, initializer=tf.initializers.identity)
@@ -144,7 +146,7 @@ class klqr:
                 self.r_pred = - action_cost - state_cost
 
             with tf.name_scope('td_loss'):
-                self.td_loss = tf.reduce_mean(tf.square(self.bootstrapped_value - self.Qsa))
+                self.td_loss = tf.reduce_mean(tf.square(self.bootstrapped_value - self.Qsa)) / tf.matrix_determinant(self.P)
             with tf.name_scope('dynamics_loss'):
                 self.dynamics_loss = tf.reduce_mean(tf.square(self.zp - self.zp_pred))
                 self.weighted_dynamics_loss = tf.reduce_mean(tf.square(tf.norm(batch_matmul(self.P_asym, self.zp- self.zp_pred))))
@@ -158,8 +160,9 @@ class klqr:
             with tf.name_scope('regularization'):
                 self.l1_reg = tf.reduce_mean(tf.abs(self.A))
                 self.l2_Q_reg = tf.reduce_mean(tf.square(self.Q))
-            
-            self.loss = self.td_weight*self.td_loss + self.dynamics_weight*self.weighted_dynamics_loss + self.cost_weight*self.cost_pred_loss + self.l1_reg_weight*self.l1_reg
+                
+            reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+            self.loss = self.td_weight*self.td_loss + self.dynamics_weight*self.dynamics_loss + self.cost_weight*self.cost_pred_loss + self.l1_reg_weight*self.l1_reg + reg_losses
             self.loss += self.reconstruction_weight*self.reconstruction_loss + self.x_dynamics_weight*self.x_dynamics_loss + self.l2_Q_reg_weight*self.l2_Q_reg
             global_step = tf.Variable(0, trainable=False, name='global_step')
             optimizer = tf.train.AdamOptimizer(self.lr)
@@ -277,9 +280,9 @@ class klqr:
         with tf.variable_scope(name,reuse=tf.AUTO_REUSE):
             inp = x
             for units in layer_sizes: 
-                inp = tf.layers.dense(inputs=inp, units=units,activation=tf.nn.relu)
+                inp = tf.layers.dense(inputs=inp, units=units,activation=tf.nn.relu, kernel_regularizer=self.regularizer)
 
-            z = tf.layers.dense(inputs=inp, units=self.z_dim,activation=None)
+            z = tf.layers.dense(inputs=inp, units=self.z_dim,activation=None, kernel_regularizer=self.regularizer)
 
         if batch_norm:
             z = tf.layers.batch_normalization(z)

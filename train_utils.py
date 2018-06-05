@@ -38,7 +38,7 @@ def experience_generator(agent, env, N,training=True):
             s_init = s.copy()
             
             #print out LQR optimal cost if env = LQEnv
-            if env.spec.id == 'LQ-v0':
+            if env.spec.id == 'LQ-v0' or env.spec.id == 'TransformedLQ-v0':
                 #compute optimal riccati
                 A = env.unwrapped.A
                 B = env.unwrapped.B
@@ -52,6 +52,8 @@ def experience_generator(agent, env, N,training=True):
                     P = 0.5*(P + P.T)
                     
                 si = np.reshape(s_init,(len(s_init),1))
+                if env.spec.id == 'TransformedLQ-v0':
+                    si = env.unwrapped.s2x(si)
                 opt_cost = (si.T @ P @ si)[0,0]
                 #print('Optimal cost for this problem:', optimal_cost)
 

@@ -1,0 +1,3 @@
+summaries/*
+.ipynb*
+__pycache__
