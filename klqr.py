@@ -152,7 +152,7 @@ class klqr:
                 self.td_loss = tf.reduce_mean(tf.square(self.bootstrapped_value - self.Qsa)) / tf.matrix_determinant(self.P)
             with tf.name_scope('dynamics_loss'):
                 self.dynamics_loss = tf.reduce_mean(tf.square(self.zp - self.zp_pred))
-                self.weighted_dynamics_loss = tf.reduce_mean(tf.square(tf.norm(batch_matmul(self.P_asym, self.zp- self.zp_pred))))
+                self.weighted_dynamics_loss = tf.reduce_mean(tf.square(tf.norm(batch_matmul(self.P_asym, self.zp) - batch_matmul(self.P_asym, self.zp_pred))))
             with tf.name_scope('cost_loss'):
                 self.cost_pred_loss = tf.reduce_mean(tf.square(self.r_pred - self.r_))
             with tf.name_scope('autoencoder_loss'):
@@ -164,8 +164,8 @@ class klqr:
                 self.l1_reg = tf.reduce_mean(tf.abs(self.A))
                 self.l2_Q_reg = tf.reduce_mean(tf.square(self.Q))
                 
-            reg_losses = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
-            self.loss = self.td_weight*self.td_loss + ( self.dynamics_weight*self.weighted_dynamics_loss + self.cost_weight*self.cost_pred_loss ) / tf.matrix_determinant(self.P) + self.l1_reg_weight*self.l1_reg + reg_losses
+            reg_losses = tf.reduce_sum( tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES) )
+            self.loss = self.td_weight*self.td_loss + (self.dynamics_weight*self.weighted_dynamics_loss + self.cost_weight*self.cost_pred_loss ) + self.l1_reg_weight*self.l1_reg + reg_losses
             self.loss += self.reconstruction_weight*self.reconstruction_loss + self.x_dynamics_weight*self.x_dynamics_loss + self.l2_Q_reg_weight*self.l2_Q_reg
             global_step = tf.Variable(0, trainable=False, name='global_step')
             optimizer = tf.train.AdamOptimizer(self.lr)
@@ -182,6 +182,7 @@ class klqr:
             tf.summary.scalar('reconstruction_loss', self.reconstruction_loss)
             tf.summary.scalar('cost_pred_loss', self.cost_pred_loss)
             tf.summary.scalar('td_loss', self.td_loss)
+            tf.summary.scalar('total_loss', self.loss)
             summarize_matrix('A', self.A)
 #             summarize_matrix('B', self.B)
             summarize_matrix('Q', self.Q)
@@ -277,7 +278,7 @@ class klqr:
     def store_experience(self,s,a,r,sp,done):
         # currently storing experience for every iteration
         # hack to avoid ill conditioned data on unstable systems
-        if np.abs(r) < 100:
+        if np.abs(r) < 1000:
             self.replay_buffer.add(s, a, r, sp, done)
     
     def encoder(self,x,name="encoder",batch_norm=False):

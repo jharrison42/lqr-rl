@@ -7,6 +7,44 @@ import random
 import time
 import yaml
 
+# returns average reward after N rollouts of agent on env, taking no exploratory actions.
+def test_rollout(agent, env, N):
+    total_rew = 0
+    for i in range(N):
+        s = env.reset()
+        while True:
+            a = agent.pi(s, explore=False)
+            sp, r, done, _ = env.step(a)
+            total_rew += r
+            
+            s = sp
+            if done:
+                break
+    return total_rew*1.0/N
+
+def compute_optimal_reward(env, N):
+    #compute optimal riccati
+    A = env.unwrapped.A
+    B = env.unwrapped.B
+    Q = env.unwrapped.Q
+    R = env.unwrapped.R
+    
+    opt_cost = 0
+    for i in range(N):
+        s_init = env.reset()
+        max_riccati = 100
+        P = Q.copy()
+        for k in range(max_riccati):
+            P = Q + A.T @ P @ A - A.T @ P @ B @ np.linalg.inv(R + B.T @ P @ B ) @ B.T @ P.T @ A
+            P = 0.5*(P + P.T)
+
+        si = np.reshape(s_init,(len(s_init),1))
+        if env.spec.id == 'TransformedLQ-v0':
+            si = env.unwrapped.s2x(si)
+        opt_cost += (si.T @ P @ si)[0,0]
+    
+    return -opt_cost*1.0/N
+
 # simulates the agent acting in env, yielding every N steps
 # (decouples episode reseting mechanics from the training alg)
 def experience_generator(agent, env, N,training=True):
@@ -71,6 +109,7 @@ def train_agent(agent, env,
                 n_transitions_between_updates=100,
                 n_optim_steps_per_update=100,
                 n_iters_per_p_update=1,
+                n_iters_per_evaluation=1,
                 training=True 
                ):
 
@@ -79,12 +118,17 @@ def train_agent(agent, env,
     timesteps_so_far = 0
     iters_so_far = 0
     tstart = time.time()
+    
+    training_curve = []
 
     assert sum([max_iters>0, max_timesteps>0, max_episodes>0, max_seconds>0])==1, "Only one time constraint permitted"
 
     exp_gen = experience_generator(agent, env, n_transitions_between_updates,training=training)
     
     while True:
+        if iters_so_far % n_iters_per_evaluation == 0:
+            training_curve.append(test_rollout(agent, env, 50))
+            
         iters_so_far += 1
         if max_timesteps and timesteps_so_far >= max_timesteps:
             break
@@ -111,3 +155,5 @@ def train_agent(agent, env,
         print("\tLast Episode Cost: %f vs optimal %f"%(-last_cum_rew, last_opt_cost))
         # add other logging stuff here
         # add saving checkpoints here
+
+    return training_curve 
